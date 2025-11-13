@@ -1,0 +1,156 @@
+# =====================================================================
+# 🧠 PROJECT OVERVIEW
+
+# Title: Financial and Behavioral Analysis in E-Commerce
+# Author: Maria Figueiredo
+# Dataset: Online Retail (UCI Machine Learning Repository)
+# Source: https://archive.ics.uci.edu/ml/datasets/Online+Retail
+
+# =====================================================================
+# 🎯 OBJECTIVE
+# This project aims to explore, clean, and analyze real-world e-commerce
+# transaction data to uncover insights about customer behavior, sales
+# performance, and purchasing patterns. By understanding the structure
+# and dynamics of online shopping data, we establish the foundation for
+# subsequent financial and predictive analyses (CLV, churn, and demand).
+
+# The dataset contains over half a million transactions from a UK-based
+# online retail store, including invoice details, product descriptions,
+# prices, quantities, and customer IDs. This rich dataset enables both
+# quantitative and behavioral exploration across time and geography.
+
+# =====================================================================
+# 💡 WHY THIS ANALYSIS MATTERS
+# In the current digital economy, data-driven decision-making defines
+# the competitive advantage of companies. E-commerce businesses generate
+# massive amounts of transactional data daily, but often fail to extract
+# its full potential.
+
+# Through this analysis, we:
+# - Identify key financial drivers behind online sales.
+# - Understand customer purchasing behavior over time.
+# - Detect patterns of loyalty, churn, and seasonal demand.
+# - Build a foundation for future forecasting and AI-based insights.
+
+# Beyond its corporate relevance, this type of analytical framework has
+# broader **societal and industrial value**:
+#   ▪ Supports sustainable retail planning by reducing waste and overstock.
+#   ▪ Encourages fairer pricing strategies and personalized offers.
+#   ▪ Promotes digital literacy and transparency in commerce.
+#   ▪ Bridges the gap between academic research and real-world application.
+#
+# Ultimately, this project exemplifies how analytics can translate data
+# into knowledge, efficiency, and ethical innovation — empowering
+# organizations to make smarter and more sustainable decisions.
+
+# =====================================================================
+# 🧩 ANALYTICAL ROADMAP
+# 1️⃣ Data Exploration
+#     → Understand dataset structure, quality, and completeness.
+
+# 2️⃣ Data Cleaning & Feature Engineering
+#     → Remove invalid transactions and build key analytical variables.
+
+# 3️⃣ Descriptive Financial & Behavioral Analysis
+#     → Measure sales performance, geographic patterns, and customer metrics.
+
+# 4️⃣ Predictive Modeling (Later Steps)
+#     → Forecast revenue, churn, and product demand using statistical
+#       and machine learning techniques.
+
+# =====================================================================
+# 📈 VALUE FOR INDUSTRY AND SOCIETY
+# ▫ For businesses:
+#     - Enhanced understanding of consumer behavior.
+#     - Improved forecasting and resource allocation.
+#     - Reduced customer attrition and increased lifetime value.
+
+# ▫ For society:
+#     - More efficient, less wasteful consumption cycles.
+#     - Data-informed strategies for economic sustainability.
+#     - Empowerment through transparency and analytical innovation.
+
+# =====================================================================
+# 🧭 CURRENT STEP
+# This first script focuses on the **initial data exploration**:
+#   - Loading and examining the dataset.
+#   - Understanding structure, variables, and missing values.
+#   - Building a data dictionary and identifying the next steps.
+
+# These steps are crucial to ensure data integrity and clarity before
+# conducting deeper financial and behavioral analyses.~
+
+# =====================================================================
+# ⚠️ Disclaimer
+# To run this script:
+# 1. Download the dataset "Online Retail.xlsx" (UCI Machine Learning Repository)
+# 2. Place it inside the folder: /data/
+# 3. Run
+
+################################################################ 0. Initial Setup ################################################################
+
+#IMPORT LIBRARIES
+import os
+import pandas as pd
+
+# LOAD DATA
+file_path = "Online Retail.xlsx"
+if not os.path.exists(file_path):
+    raise FileNotFoundError(
+        f"❌ O ficheiro 'Online Retail.xlsx' não foi encontrado em {file_path}.\n"
+        f"➡️ Certifica-te que o colocaste na pasta 'data/'."
+    )
+
+df = pd.read_excel(file_path)
+
+#INITIAL EXPLORATION
+print("🔹 Basic Information:\n")
+df.info()
+
+print("\n🔹 First 5 Rows:\n")
+print(df.head())
+
+print("\n🔹 Statistical Summary (Numerical Columns):\n")
+print(df.describe())
+
+################################################################ 1. Pre-Analysis ################################################################
+
+# ANALYSIS OF THE DATA STRUCTURE
+print("\n🔹 Dataset Overview:")
+print(f"Number of rows: {df.shape[0]:,}")
+print(f"Number of columns: {df.shape[1]}")
+print(f"Column names: {list(df.columns)}")
+
+print("\n🔹 Missing Values per Column:\n")
+print(df.isnull().sum())
+
+# CREATE A DATA DICTIONARY
+data_dictionary = {
+    "InvoiceNo": "Unique identifier for each transaction (invoices starting with 'C' indicate cancellations/refunds).",
+    "StockCode": "Internal code for the product.",
+    "Description": "Text description of the product (some missing values).",
+    "Quantity": "Number of product units sold. Negative values indicate returns.",
+    "InvoiceDate": "Date and time of the transaction.",
+    "UnitPrice": "Price per unit in British Pounds (£).",
+    "CustomerID": "Unique identifier of the customer (about 25% missing).",
+    "Country": "Country of the customer."
+}
+
+print("\n🔹 Data Dictionary:\n")
+for col, desc in data_dictionary.items():
+    print(f"{col}: {desc}")
+
+################################################################ 2. Dataset Interpretation ################################################################
+
+# INTERPRETATION AND KEY FINDINGS
+print("\n🔹 Key Findings from Initial Exploration:\n")
+print("""
+1. The dataset contains 541,909 transactions — a large enough sample for robust analysis.
+2. The 'InvoiceDate' column allows for time-based analysis (monthly, daily, seasonal trends).
+3. Missing data:
+   - 'CustomerID': around 25% missing values — likely guest or unregistered purchases.
+   - 'Description': around 1,500 missing values.
+4. Negative quantities in 'Quantity' represent product returns or cancellations.
+5. Transactions span multiple countries (≈38), enabling geographic comparisons.
+6. All monetary values are in British Pounds (£).
+""")
