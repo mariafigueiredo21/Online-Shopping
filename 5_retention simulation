@@ -1,0 +1,235 @@
+# =====================================================================
+# 💰 STEP 6: CUSTOMER RETENTION SIMULATION + STRATEGIC INTERPRETATION
+
+# Title: Modeling the Financial Impact of Customer Retention
+# Author: Maria Figueiredo
+# Dataset: Online Retail (UCI Machine Learning Repository)
+
+# =====================================================================
+# 🎯 OBJECTIVE
+# This step evaluates how variations in customer retention rates influence overall Customer Lifetime Value (CLV) and 
+# business profitability.
+# Using the behavioral and financial metrics derived from previous steps, we simulate different retention-rate scenarios (+0%, +5%, +10%)
+# to measure their compound effect on lifetime revenue generation.
+
+# The goal is to quantify the economic value of customer loyalty and demonstrate why retention-focused strategies outperform 
+# acquisition-heavy models in the long run.
+
+# Specifically, this analysis:
+#   ▪ Computes a baseline CLV from transactional data.
+#   ▪ Defines multiple retention improvement scenarios.
+#   ▪ Quantifies the percentage growth in CLV for each scenario.
+#   ▪ Visualizes the financial elasticity of customer retention.
+#   ▪ Interprets results through a strategic management perspective.
+
+# =====================================================================
+# 💡 WHY THIS STEP MATTERS
+# Retention is the most powerful profitability lever in customer analytics.
+# A small improvement in retention yields exponential increases in CLV
+# because returning customers generate recurring revenue with zero
+# acquisition cost.
+
+# ▫ Financially → Demonstrates how loyalty directly compounds profitability.
+# ▫ Strategically → Justifies prioritizing retention programs and CRM automation.
+# ▫ Operationally → Helps forecast stability and reduce revenue volatility.
+
+# By connecting retention and lifetime value, this simulation transforms customer analysis into actionable financial intelligence.
+
+# =====================================================================
+# 🌍 VALUE FOR INDUSTRY AND SOCIETY
+# ▫ For Businesses:
+#     - Quantifies the ROI of loyalty and reactivation initiatives.
+#     - Encourages long-term, relationship-based growth.
+#     - Reduces dependence on aggressive acquisition cycles.
+
+# ▫ For Society:
+#     - Promotes ethical, trust-based customer relationships.
+#     - Supports sustainable consumption through brand loyalty.
+#     - Encourages responsible marketing with focus on retention rather than impulsive sales tactics.
+
+# =====================================================================
+# 🧭 CURRENT STEP
+# This script follows Step 5 (CLV Modeling) and builds on the insights from RFM and lifetime value analyses to 
+# explore the financial elasticity of retention.
+
+# In this step we:
+#   1️⃣ Calculate baseline CLV and churn rate.
+#   2️⃣ Simulate alternative retention scenarios (+5%, +10%).
+#   3️⃣ Measure corresponding percentage increases in CLV.
+#   4️⃣ Visualize the non-linear relationship between retention and profit.
+#   5️⃣ Provide strategic recommendations for loyalty and reactivation.
+
+# The simulation’s outputs serve as executive evidence for decision-making
+# — guiding CRM strategy, marketing budgeting, and retention investment.
+
+# =====================================================================
+# 💼 STRATEGIC CONTEXT
+# By demonstrating how each additional retention point multiplies customer lifetime revenue, this analysis provides clear, 
+# quantitative justification for:
+#   ▪ Investing in loyalty programs and customer experience design.
+#   ▪ Implementing churn detection and reactivation automation.
+#   ▪ Tracking retention as a core KPI of marketing performance.
+
+# Ultimately, this step links customer loyalty directly to financial sustainability, reinforcing the business case 
+# for relationship-driven growth.
+
+################################################################ 0. Initial Setup ################################################################
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+import warnings
+from datetime import datetime
+
+warnings.filterwarnings("ignore")
+sns.set(style="whitegrid")
+
+# GitHub-Friendly Paths
+clean_path = "Online_Retail_CLEAN.csv"
+fig_dir = "figures/"
+
+os.makedirs("output", exist_ok=True)
+os.makedirs(fig_dir, exist_ok=True)
+
+# Check if cleaned dataset exists
+if not os.path.exists(clean_path):
+    raise FileNotFoundError(
+        f"\n❌ Cleaned dataset not found: {clean_path}\n"
+        f"➡️ Please run STEP 2 before executing STEP 6.\n"
+    )
+
+# LOAD DATA
+df = pd.read_csv(clean_path)
+df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'])
+
+################################################################ 1. Build Base CLV Metrics ################################################################
+
+reference_date = df['InvoiceDate'].max() + pd.Timedelta(days=1)
+
+rfm = df.groupby('CustomerID').agg({
+    'InvoiceDate': lambda x: (reference_date - x.max()).days,
+    'InvoiceNo': 'nunique',
+    'TotalPrice': 'sum'
+}).reset_index()
+
+rfm.columns = ['CustomerID', 'Recency', 'Frequency', 'Monetary']
+
+# Behavioral metrics
+rfm['AOV'] = rfm['Monetary'] / rfm['Frequency']
+rfm['PurchaseFreq'] = rfm['Frequency'] / df['InvoiceNo'].nunique()
+
+# Churn (approximation from Recency)
+avg_recency = rfm['Recency'].mean()
+churn_rate = 1 / (avg_recency / 30)   # monthly churn
+margin = 0.10
+
+# Base CLV
+rfm['CLV'] = (rfm['AOV'] * rfm['PurchaseFreq'] / churn_rate) * margin
+
+base_retention = 1 - churn_rate
+print(f"✅ Base CLV calculated. Average CLV = £{rfm['CLV'].mean():.2f}")
+print(f"Estimated churn rate: {churn_rate:.3f} → Retention rate: {base_retention:.2%}\n")
+
+################################################################ 2. Retention Simulation ################################################################
+
+# Improvement scenarios
+scenarios = [base_retention, base_retention + 0.05, base_retention + 0.10]
+scenarios = [min(s, 0.99) for s in scenarios]  # safety cap
+
+def clv_from_retention(retention, margin, avg_aov, avg_freq, discount_rate=0.10):
+    """
+    Discounted CLV formula:
+    CLV = (Revenue_per_period * Margin * Retention) / (1 + DiscountRate - Retention)
+    """
+    return (avg_aov * avg_freq * margin * retention) / (1 + discount_rate - retention)
+
+avg_aov = rfm['AOV'].mean()
+avg_freq = rfm['Frequency'].mean()
+
+clv_sim = pd.DataFrame({
+    'RetentionRate': scenarios,
+    'CLV_Estimated': [clv_from_retention(r, margin, avg_aov, avg_freq) for r in scenarios]
+})
+clv_sim['Increase_vs_Base (%)'] = (
+    (clv_sim['CLV_Estimated'] - clv_sim['CLV_Estimated'].iloc[0]) /
+    clv_sim['CLV_Estimated'].iloc[0] * 100
+)
+
+################################################################ 3. Visualization ################################################################
+
+fig, ax = plt.subplots(figsize=(10,5))
+sns.barplot(data=clv_sim, x='RetentionRate', y='CLV_Estimated', palette='crest', ax=ax)
+
+ax.set_title("CLV Growth under Retention Rate Scenarios")
+ax.set_xlabel("Customer Retention Rate")
+ax.set_ylabel("Estimated CLV (£)")
+
+# Add % increase annotations
+for i, row in clv_sim.iterrows():
+    ax.text(
+        i,
+        row['CLV_Estimated'] * 1.01,
+        f"+{row['Increase_vs_Base (%)']:.1f}%",
+        ha='center',
+        fontsize=10
+    )
+
+plt.tight_layout()
+
+# Save figure
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+fig_path = os.path.join(fig_dir, f"CLV_Retention_Simulation_{timestamp}.png")
+fig.savefig(fig_path, dpi=300, bbox_inches='tight')
+print(f"🖼️ Figure saved: {fig_path}\n")
+plt.show()
+
+################################################################ 4. Interpretation ################################################################
+
+print("🔍 Analytical Interpretation: CLV Growth under Retention Scenarios\n")
+print("""
+The simulation confirms the exponential relationship between customer retention and lifetime value.
+
+📊 Key Findings:
+- Current retention ≈ 67.6%, creating high churn sensitivity.
+- A +5 p.p. improvement → **~21.7% CLV increase**.
+- A +10 p.p. improvement → **~50.2% CLV increase**.
+
+📈 Why this happens:
+Retention compounds revenue because loyal customers purchase repeatedly with zero acquisition cost.
+""")
+
+print("\n💡 Strategic Implications\n")
+print("""
+1️⃣ Retention-first growth strategies outperform acquisition-heavy models.
+2️⃣ Value compounds over time — loyal customers produce recurring profit.
+3️⃣ Even small increases in retention deliver disproportionately large financial gains.
+4️⃣ Improved loyalty stabilizes cash flow and reduces marketing volatility.
+""")
+
+print("\n🎯 Strategic Recommendations\n")
+print("""
+- **Reactivation Programs** for “At Risk” and “Potential Loyalists”.
+- **VIP Loyalty Initiatives** targeting “High Value” & “Top Value” CLV groups.
+- **Predictive Churn Monitoring** using Recency + Frequency triggers.
+- **CRM Automation** to capture churn signals and deliver targeted offers.
+
+💼 Business takeaway:
+A simple +10 p.p. retention improvement can grow total CLV by **50%** —
+a direct impact on profitability, customer equity, and long-term value.
+""")
+
+print("\n📊 Business Impact Summary\n")
+print("""
+| Scenario      | Retention Rate | Δ CLV (%) | Interpretation |
+|---------------|----------------|-----------|----------------|
+| Base Case     | 67.6%          | —         | Current performance with high churn |
+| +5 p.p.       | 72.6%          | +21.7%    | Strong ROI from moderate retention lift |
+| +10 p.p.      | 77.6%          | +50.2%    | Large loyalty gain → exponential CLV growth |
+
+💬 Final Insight:
+Retention is the most powerful lever of profitability —  
+each additional retention point multiplies lifetime revenue and reduces acquisition pressure.
+""")
+
+print("\n✅ Retention Simulation completed successfully.\n")
