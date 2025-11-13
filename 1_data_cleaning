@@ -1,0 +1,178 @@
+# =====================================================================
+# 🧹 STEP 2: DATA CLEANING & FEATURE CREATION
+
+# Title: Preparing E-Commerce Data for Financial and Behavioral Analysis
+# Author: Maria Figueiredo
+# Dataset: Online Retail (UCI Machine Learning Repository)
+
+# =====================================================================
+# 🎯 OBJECTIVE
+# The purpose of this step is to transform raw transactional data into a reliable analytical dataset. 
+# Before any meaningful financial or behavioral insight can be extracted, it is essential to ensure that
+# the data accurately represents real business activity.
+
+# This involves:
+#   ▪ Removing invalid or misleading transactions (returns, cancellations).
+#   ▪ Handling missing or inconsistent customer information.
+#   ▪ Cleaning and standardizing product descriptions.
+#   ▪ Creating key analytical variables such as total transaction value
+#     and time-based dimensions (year, month, weekday, hour).
+
+# =====================================================================
+# 💡 WHY THIS STEP MATTERS
+# Data cleaning is the foundation of all trustworthy analytics.
+# In the context of e-commerce, even small data inconsistencies can lead to incorrect conclusions about revenue, 
+# customer behavior, or demand patterns.
+
+# By performing structured data cleaning:
+#   ▪ We eliminate noise that could distort key financial indicators.
+#   ▪ We enable accurate computation of metrics like revenue, AOV, and Customer Lifetime Value (CLV).
+#   ▪ We build the basis for robust behavioral and predictive models (e.g., churn, segmentation, and forecasting).
+
+# =====================================================================
+# 🌍 VALUE FOR INDUSTRY AND SOCIETY
+# ▫ For Businesses:
+#     - Reliable performance measurement and decision support.
+#     - Prevention of analytical errors that could misguide strategy.
+#     - More transparent understanding of operational performance.
+
+# ▫ For Society:
+#     - Encourages data integrity and responsible analytics.
+#     - Promotes sustainability through accurate demand forecasting (avoiding overproduction and waste).
+#     - Strengthens trust in data-driven innovation.
+
+# =====================================================================
+# 🧭 CURRENT STEP
+# This script is part of the broader project “Financial and Behavioral Analysis in E-Commerce”.
+
+# In this step, we:
+#   1️⃣ Load the raw dataset and inspect its structure.
+#   2️⃣ Remove returns, cancellations, and invalid transactions.
+#   3️⃣ Handle missing values and clean product descriptions.
+#   4️⃣ Create financial and time-based analytical features.
+#   5️⃣ Save the cleaned dataset for future modeling.
+
+# The output is a high-quality, consistent dataset — the cornerstone for accurate analysis of customer behavior, 
+# sales performance, and predictive modeling in future steps.
+
+################################################################ 0. Initial Setup ################################################################
+
+import pandas as pd
+import numpy as np
+import os
+
+# == GitHub-Friendly File Paths ==
+input_path = "Online Retail.xlsx"
+output_path = "Online_Retail_CLEAN.csv"
+
+# Create output folder if it doesn't exist
+os.makedirs("output", exist_ok=True)
+
+# File existence check
+if not os.path.exists(input_path):
+    raise FileNotFoundError(
+        f"\n❌ Dataset not found: {input_path}\n"
+        f"➡️ Please download 'Online Retail.xlsx' from the UCI ML Repository\n"
+        f"   and place it inside the folder: data/\n"
+    )
+
+# LOAD THE DATA
+df = pd.read_excel(input_path)
+
+print(f"✅ Dataset successfully loaded with {df.shape[0]:,} rows and {df.shape[1]} columns.")
+print("Justification: Loading the dataset into memory allows us to examine all transactions before cleaning.")
+
+################################################################ 1. Initial Dataset Clean ################################################################
+
+# REMOVE CREDIT NOTES (Returns or Cancellations)
+initial_shape = df.shape
+df = df[~df['InvoiceNo'].astype(str).str.startswith('C')]
+removed_cancellations = initial_shape[0] - df.shape[0]
+print(f"🧾 Removed {removed_cancellations:,} cancelled transactions.")
+print("Justification: Invoices starting with 'C' represent credit notes or cancellations, "
+      "which do not contribute to actual revenue and would distort financial KPIs.")
+
+# REMOVE NEGATIVE OR ZERO QUANTITIES AND PRICES
+before_qty_price = df.shape[0]
+df = df[(df['Quantity'] > 0) & (df['UnitPrice'] > 0)]
+removed_invalid = before_qty_price - df.shape[0]
+print(f"📉 Removed {removed_invalid:,} invalid rows with negative or zero quantity/price.")
+print("Justification: Negative quantities represent returns, and zero prices are likely errors "
+      "or promotional samples that do not reflect regular sales.")
+
+# DROP MISSING CUSTOMER IDs
+before_customers = df.shape[0]
+df = df.dropna(subset=['CustomerID'])
+removed_missing_customers = before_customers - df.shape[0]
+print(f"🙍 Removed {removed_missing_customers:,} transactions with missing CustomerIDs.")
+print("Justification: Missing CustomerIDs prevent us from tracking unique customers "
+      "and performing behavioral analyses such as loyalty or frequency.")
+
+# CLEAN PRODUCT DESCRIPTIONS
+df['Description'] = df['Description'].str.strip().str.title()
+print("🧾 Cleaned product descriptions by removing extra spaces and standardizing capitalization.")
+print("Justification: Ensures product names are formatted consistently, which improves grouping and visualization quality.")
+
+################################################################ 2. Add Parameters ################################################################
+
+# CREATE TOTAL PRICE COLUMN
+df['TotalPrice'] = df['Quantity'] * df['UnitPrice']
+print("💰 Created 'TotalPrice' column as Quantity × UnitPrice.")
+print("Justification: This represents the revenue contribution of each transaction and is essential "
+      "for calculating key financial KPIs like total revenue, average order value, and profitability.")
+
+# CREATE TIME-BASED FEATURES
+df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'])
+df['InvoiceYear'] = df['InvoiceDate'].dt.year
+df['InvoiceMonth'] = df['InvoiceDate'].dt.month
+df['InvoiceWeekday'] = df['InvoiceDate'].dt.day_name()
+df['InvoiceHour'] = df['InvoiceDate'].dt.hour
+print("🕒 Created new time-based features (Year, Month, Weekday, Hour).")
+print("Justification: Enables temporal analyses — for example, identifying peak sales periods, "
+      "day-of-week patterns, and hourly purchase behavior.")
+
+# RESET INDEX
+df = df.reset_index(drop=True)
+print("🔄 Reset DataFrame index after filtering.")
+print("Justification: Keeps the dataset clean and sequential after multiple row deletions.")
+
+################################################################ 3. Final Setup ################################################################
+
+# POST-CLEANING VALIDATION
+print("\n🔹 DATA CLEANING SUMMARY:")
+print(f"Remaining valid transactions: {df.shape[0]:,}")
+print(f"Unique customers: {df['CustomerID'].nunique():,}")
+print(f"Unique products: {df['StockCode'].nunique():,}")
+print(f"Countries covered: {df['Country'].nunique()}")
+
+print("\n🔹 Quantity and Price Validity Check:")
+print(df[['Quantity', 'UnitPrice']].describe())
+
+print("\n🔹 Missing Values After Cleaning:")
+print(df.isnull().sum())
+
+print("\n🔹 Cleaned Dataset Sample:\n")
+print(df.head(10))
+
+# SAVE CLEANED DATASET
+clean_path = r"C:\Users\mcfigueiredo\OneDrive - SONAE\Desktop\Online Shopping\Online_Retail_CLEAN.csv"
+df.to_csv(clean_path, index=False)
+print(f"\n💾 Cleaned dataset saved to: {clean_path}")
+print("Justification: Saving the cleaned dataset allows us to reuse it "
+      "in future scripts without repeating the cleaning process.")
+
+################################################################ 4. Data Interpretation ################################################################
+
+# REASSESSMENT OF DATA QUALITY
+print("\n🔍 FINAL EVALUATION OF CLEANED DATASET:")
+print("""
+✅ The dataset is now clean and ready for analysis.
+- All cancelled or refunded transactions have been removed.
+- Negative and zero quantities/prices have been excluded.
+- Customer information is complete (no missing IDs).
+- Product descriptions are standardized.
+- Financial (TotalPrice) and temporal variables have been created.
+
+This clean dataset now represents true business activity and will
+allow for accurate financial and behavioral analysis.
+""")
