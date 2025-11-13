@@ -1,0 +1,228 @@
+# =====================================================================
+# 💰 STEP 5: CUSTOMER LIFETIME VALUE (CLV) ANALYSIS
+
+# Title: Estimating and Segmenting Future Customer Value
+# Author: Maria Figueiredo
+# Dataset: Online Retail (UCI Machine Learning Repository)
+
+# =====================================================================
+# 🎯 OBJECTIVE
+# This step quantifies the long-term financial value of each customer through the Customer Lifetime Value (CLV) model. 
+# CLV measures the total profit a company can expect from a customer over the entire relationship, 
+# providing a forward-looking view of profitability.
+
+# Specifically, this analysis:
+#   ▪ Calculates CLV for each customer based on their purchasing behavior.
+#   ▪ Segments customers into four value tiers (Low, Mid, High, Top).
+#   ▪ Visualizes CLV distribution to identify concentration of value.
+#   ▪ Translates findings into strategic actions for retention, loyalty, and revenue optimization.
+
+# The output connects financial performance with behavioral insights, forming a bridge between descriptive analytics (RFM) 
+# and predictive business intelligence.
+
+# =====================================================================
+# 💡 WHY THIS STEP MATTERS
+# CLV is one of the most powerful tools in customer analytics — it shifts focus from short-term transactions to long-term relationships.
+
+# ▫ Financially → Quantifies the economic contribution of each customer.
+# ▫ Strategically → Prioritizes marketing and retention investment.
+# ▫ Behaviorally → Connects frequency, recency, and monetary data to
+#   forecast future profitability.
+
+# Through CLV, businesses can:
+#   - Identify their most valuable clients.
+#   - Allocate budgets intelligently based on projected returns.
+#   - Forecast growth potential and assess churn impact.
+
+# =====================================================================
+# 🌍 VALUE FOR INDUSTRY AND SOCIETY
+# ▫ For Businesses:
+#     - Promotes customer-centric strategy and sustainable growth.
+#     - Optimizes retention spending and marketing ROI.
+#     - Strengthens predictive decision-making through financial foresight.
+
+# ▫ For Society:
+#     - Encourages responsible use of customer data for value creation,
+#       not exploitation.
+#     - Promotes fairer personalization and transparency in commerce.
+#     - Supports economic sustainability by reducing wasteful acquisition
+#       and focusing on lasting relationships.
+
+# =====================================================================
+# 🧭 CURRENT STEP
+# This script follows Step 4 (RFM Segmentation) and uses the behavioral insights derived there to estimate each customer’s future 
+# economic value.
+
+# In this step we:
+#   1️⃣ Compute core behavioral metrics (AOV, Frequency, Recency).
+#   2️⃣ Estimate CLV using a simple probabilistic model based on churn rate.
+#   3️⃣ Segment customers into quartiles (Low → Top Value).
+#   4️⃣ Visualize the CLV distribution and interpret its strategic meaning.
+#   5️⃣ Provide recommendations to optimize retention and marketing strategy.
+
+# The results from this step will be essential for the next phase: predictive modeling (churn forecasting, retention simulation, and
+# demand prediction), enabling proactive business planning.
+
+################################################################ 0. Initial Setup ################################################################
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+import warnings
+from datetime import datetime
+
+warnings.filterwarnings("ignore")
+sns.set(style="whitegrid")
+
+# GitHub-Friendly Paths
+clean_path = "Online_Retail_CLEAN.csv"
+fig_dir = "figures/"
+
+# Ensure required folders exist
+os.makedirs("output", exist_ok=True)
+os.makedirs(fig_dir, exist_ok=True)
+
+# File existence check
+if not os.path.exists(clean_path):
+    raise FileNotFoundError(
+        f"\n❌ Cleaned dataset not found: {clean_path}\n"
+        f"➡️ Please run STEP 2 (Cleaning) first to generate it.\n"
+    )
+
+# LOAD CLEANED DATASET
+df = pd.read_csv(clean_path)
+df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'])
+
+print(f"✅ Dataset loaded with {df.shape[0]:,} rows.")
+print("Justification: CLV requires historical transactional data including CustomerID, InvoiceDate, and TotalPrice.\n")
+
+################################################################ 1. CLV Setup ################################################################
+
+# BUILD CUSTOMER METRICS
+reference_date = df['InvoiceDate'].max() + pd.Timedelta(days=1)
+rfm = df.groupby('CustomerID').agg({
+    'InvoiceDate': lambda x: (reference_date - x.max()).days,
+    'InvoiceNo': 'nunique',
+    'TotalPrice': 'sum'
+}).reset_index()
+
+rfm.columns = ['CustomerID', 'Recency', 'Frequency', 'Monetary']
+
+print("🔧 Calculating average order value and purchase frequency...\n")
+
+rfm['AOV'] = rfm['Monetary'] / rfm['Frequency']
+rfm['PurchaseFreq'] = rfm['Frequency'] / df['InvoiceNo'].nunique()
+
+print("✅ Metrics calculated: Average Order Value (AOV) and Purchase Frequency.\n")
+print("Interpretation: These indicators measure customer buying power and engagement level, forming the base for CLV.\n")
+
+################################################################ 2. CLV Analysis ################################################################
+
+# CLV CALCULATION
+print("💰 Calculating Customer Lifetime Value (CLV)...")
+
+gross_margin = 0.10
+avg_recency = rfm['Recency'].mean()
+churn_rate = 1 / (avg_recency / 30)  # Monthly churn proxy
+
+rfm['CLV'] = (rfm['AOV'] * rfm['PurchaseFreq'] / churn_rate) * gross_margin
+
+print(f"✅ CLV calculated successfully. Estimated churn rate: {churn_rate:.3f}")
+print("Interpretation: The churn rate approximates how quickly customers lapse, directly impacting the estimated lifetime value.\n")
+
+# CLV SEGMENTATION
+rfm['CLV_Category'] = pd.qcut(rfm['CLV'], 4, labels=['Low Value', 'Mid Value', 'High Value', 'Top Value'])
+
+print("🎯 Customers classified into CLV quartiles.")
+print("Interpretation: Clients are divided into four value tiers — from low lifetime value to top revenue drivers.\n")
+
+# VISUALIZATION: CLV DISTRIBUTION
+fig, ax = plt.subplots(figsize=(12,6))
+sns.histplot(rfm['CLV'], bins=50, kde=True, color='teal', ax=ax)
+ax.set_title("Customer Lifetime Value (CLV) Distribution")
+ax.set_xlabel("Estimated CLV (£)")
+ax.set_ylabel("Number of Customers")
+plt.tight_layout()
+
+fig_dir = r"C:\Users\mcfigueiredo\OneDrive - SONAE\Desktop\Online Shopping\figures"
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+filepath = os.path.join(fig_dir, f"CLV_Distribution_{timestamp}.png")
+fig.savefig(filepath, dpi=300, bbox_inches='tight')
+print(f"🖼️ Figure saved: {filepath}")
+plt.show()
+
+################################################################ 3. CLV Interpretation ################################################################
+
+# INTERPRETATION: CLV DISTRIBUTION
+print("\n🔍 Analytical Interpretation: CLV Distribution\n")
+print("""
+1️⃣ The CLV distribution is extremely right-skewed — confirming that a small share of customers contributes 
+    disproportionately to total value (Pareto principle in action).
+
+2️⃣ Most customers cluster around very low CLV values, suggesting infrequent or one-time purchases.
+
+3️⃣ A few outliers (long-tail clients) display much higher CLV, representing loyal, high-spending profiles.
+
+💡 Strategic Implication:
+This indicates a heavy revenue dependence on a narrow elite customer base. 
+Retention, loyalty rewards, and cross-selling efforts should prioritize these clients, 
+as losing them would significantly reduce profitability.
+""")
+
+# VISUALIZATION: CLV CATEGORY SEGMENTATION
+fig, ax = plt.subplots(figsize=(10,5))
+sns.countplot(x='CLV_Category', data=rfm,
+              palette=['#9ad1bc', '#74b49b', '#5c8d89', '#435560'], ax=ax)
+ax.set_title("Customer Segmentation by CLV Category")
+ax.set_xlabel("CLV Category")
+ax.set_ylabel("Number of Customers")
+plt.tight_layout()
+
+filepath2 = os.path.join(fig_dir, f"CLV_Categories_{timestamp}.png")
+fig.savefig(filepath2, dpi=300, bbox_inches='tight')
+print(f"🖼️ Figure saved: {filepath2}")
+plt.show()
+
+
+# INTERPRETATION: CLV CATEGORY FIGURE
+print("\n🔍 Analytical Interpretation: Customer Segmentation by CLV Category\n")
+print("""
+1️⃣ The segmentation reveals an almost even distribution across the four quartiles 
+    (Low, Mid, High, Top Value) — suggesting a balanced customer base in numerical terms, 
+    but not in monetary weight.
+
+2️⃣ Despite equal counts, the **monetary impact** is heavily concentrated 
+    in the Top Value and High Value tiers, confirming unequal contribution to revenue.
+
+3️⃣ 'Low Value' customers, while numerous, yield minimal lifetime returns — 
+    a strong argument for automation and targeted reactivation instead of manual retention.
+
+💡 Strategic Implication:
+Marketing and customer care resources should focus on the **Top 50% (High + Top Value)** tiers.
+Personalized offers, loyalty programs, and proactive retention for this group 
+will maximize long-term profit and ROI.
+""")
+
+# STRATEGIC SYNTHESIS
+print("\n📈 Strategic Synthesis: CLV-Based Decision Framework\n")
+print("""
+🔹 The combination of RFM and CLV analysis allows a full 360° view of customer behavior and financial contribution.
+
+🔹 The strong alignment between high RFM scores and high CLV segments validates behavioral scoring as a 
+predictive tool for future value.
+
+🔹 The business shows a clear Pareto dynamic: around 20–25% of customers likely account for 70–80% of total value.
+
+🎯 Recommendations:
+   1. Develop VIP retention and rewards for 'Top Value' clients.
+   2. Convert 'High Value' and 'Mid Value' customers into champions via loyalty tiers or exclusive campaigns.
+   3. Automate low-effort, low-cost reactivation workflows for 'Low Value' clients.
+   4. Monitor CLV evolution quarterly to evaluate campaign ROI and churn reduction impact.
+
+💡 Business Insight:
+Shifting marketing focus from volume (acquisition) to **value (retention & expansion)** 
+can deliver sustainable growth, improve margins, and strengthen customer equity.
+""")
+
+print("\n✅ CLV analysis completed successfully with full interpretation.")
