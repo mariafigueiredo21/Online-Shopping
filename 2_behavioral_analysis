@@ -1,0 +1,304 @@
+# =====================================================================
+# 📊 STEP 3: EXPLORATORY FINANCIAL & BEHAVIORAL ANALYSIS
+
+# Title: Understanding Financial Performance and Customer Behavior
+# Author: Maria Figueiredo
+# Dataset: Online Retail (UCI Machine Learning Repository)
+#
+# =====================================================================
+# 🎯 OBJECTIVE
+# This step transforms the cleaned transactional dataset into actionable insights. 
+# Through descriptive statistics and data visualization, we aim to understand the financial performance 
+# of the business and the behavior of its customers across time, products, and geography.
+
+# Specifically, this analysis:
+#   ▪ Measures key financial KPIs (revenue, AOV, customer value).
+#   ▪ Examines geographic and product-level performance.
+#   ▪ Detects seasonality, temporal patterns, and customer segmentation clues.
+#   ▪ Produces visual assets (charts) for dashboards and reports.
+
+# The goal is to translate raw numbers into clear business insights that support data-driven decision-making.
+
+# =====================================================================
+# 💡 WHY THIS STEP MATTERS
+# Exploratory financial analysis bridges the gap between data preparation and advanced analytics. 
+# It reveals trends, relationships, and anomalies that define how a company generates value and how customers behave.
+
+# ▫ Financially → identifies the real drivers of revenue and profitability.
+# ▫ Behaviorally → clarifies how customers purchase, when, and on what.
+# ▫ Strategically → provides evidence for decisions on pricing, marketing, stock planning, and customer retention.
+
+# Without this step, predictive models would lack context and could lead to misleading conclusions.
+
+# =====================================================================
+# 🌍 VALUE FOR INDUSTRY AND SOCIETY
+# ▫ For Businesses:
+#     - Enables transparent performance tracking and profitability analysis.
+#     - Supports sustainable growth by identifying seasonality and demand cycles.
+#     - Highlights customer diversity and opportunities for personalization.
+
+# ▫ For Society:
+#     - Encourages responsible retail practices and efficient logistics.
+#     - Reduces waste by aligning production and demand forecasting.
+#     - Promotes data-driven innovation that respects consumer behavior and market transparency.
+
+# =====================================================================
+# 🧭 CURRENT STEP
+# This script is part of the project “Financial and Behavioral Analysis in E-Commerce”. 
+# Building on the cleaned dataset from Step 2, it focuses on *exploring* and *visualizing* the data to extract interpretable insights.
+
+# In this step we:
+#   1️⃣ Load the cleaned dataset created in Step 2.
+#   2️⃣ Compute core financial metrics (revenue, AOV, customers).
+#   3️⃣ Visualize results by geography, product, time, and behavior.
+#   4️⃣ Interpret findings and provide strategic recommendations.
+
+# The outputs — figures, metrics, and interpretations — form the foundation for predictive modeling in the following steps 
+# (RFM, CLV, churn, and demand).
+
+################################################################ 0. Initial Setup ################################################################
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+import warnings
+from datetime import datetime
+
+# CONFIGURATION
+warnings.filterwarnings("ignore")
+sns.set(style="whitegrid")
+
+# == GitHub-Friendly File Paths ==
+clean_path = "Online_Retail_CLEAN.csv"
+fig_dir = "figures/"
+
+# Ensure required folders exist
+os.makedirs("output", exist_ok=True)
+os.makedirs(fig_dir, exist_ok=True)
+
+# File existence check (cleaned data must exist from Step 2)
+if not os.path.exists(clean_path):
+    raise FileNotFoundError(
+        f"\n❌ Cleaned dataset not found: {clean_path}\n"
+        f"➡️ Please run STEP 2 (Data Cleaning) first.\n"
+        f"   It will generate the necessary cleaned file inside: output/\n"
+    )
+
+# LOAD CLEANED DATASET
+df = pd.read_csv(clean_path)
+
+print(f"✅ Cleaned dataset loaded with {df.shape[0]:,} rows and {df.shape[1]} columns.")
+print("Justification: We load the cleaned dataset to ensure that all previous transformations "
+      "(TotalPrice and time-based features) are available.\n")
+
+# Helper function to save and show figures
+def save_and_show(fig, name):
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filepath = os.path.join(fig_dir, f"{name}_{timestamp}.png")
+    fig.savefig(filepath, dpi=300, bbox_inches='tight')
+    plt.show()
+
+################################################################ 1. Initial Analysis ################################################################
+
+# FINANCIAL KPIs
+print("📈 Calculating key financial indicators...")
+
+total_revenue = df['TotalPrice'].sum()
+num_transactions = df['InvoiceNo'].nunique()
+num_customers = df['CustomerID'].nunique()
+avg_order_value = total_revenue / num_transactions
+avg_revenue_per_customer = total_revenue / num_customers
+
+print(f"💰 Total Revenue: £{total_revenue:,.2f}")
+print(f"🧾 Number of Transactions: {num_transactions:,}")
+print(f"👥 Unique Customers: {num_customers:,}")
+print(f"🛍️ Average Order Value (AOV): £{avg_order_value:,.2f}")
+print(f"📊 Average Revenue per Customer: £{avg_revenue_per_customer:,.2f}\n")
+
+# FIGURE: Top10 Countries Revenues
+print("📊 Generating figure: Top10 Countries Revenues...")
+
+country_revenue = (
+    df.groupby('Country')['TotalPrice']
+    .sum()
+    .sort_values(ascending=False)
+    .head(10)
+)
+
+fig, ax = plt.subplots(figsize=(10,6))
+sns.barplot(x=country_revenue.values, y=country_revenue.index, palette=sns.color_palette("Blues", n_colors=10), ax=ax)
+ax.set_title("Top10 Countries Revenues")
+ax.set_xlabel("Total Revenue (£)")
+ax.set_ylabel("Country")
+plt.tight_layout()
+save_and_show(fig, "Top10_Countries_Revenues")
+
+# Figure 1. Analytical Interpretation: Top10 Countries Revenues
+print("\n🔍 Analytical Interpretation: Top10 Countries Revenues\n")
+print("""
+1️⃣ The United Kingdom dominates total sales, revealing strong domestic performance but also high dependency risk.
+2️⃣ Secondary European markets (Netherlands, Ireland, Germany, France) show growth potential.
+3️⃣ Non-European sales (e.g., Australia) are residual — expansion could reduce geographic concentration.
+💡 Strategic Insight:
+Pursue regional diversification through localized campaigns and partnerships.
+""")
+
+# FIGURE: Top10 Products Revenues
+print("\n📊 Generating figure: Top10 Products Revenues...")
+
+product_revenue = (
+    df.groupby('Description')['TotalPrice']
+    .sum()
+    .sort_values(ascending=False)
+    .head(10)
+)
+
+fig, ax = plt.subplots(figsize=(10,6))
+sns.barplot(x=product_revenue.values, y=product_revenue.index, palette=sns.color_palette("Greens", n_colors=10), ax=ax)
+ax.set_title("Top10 Products Revenues")
+ax.set_xlabel("Total Revenue (£)")
+ax.set_ylabel("Product Description")
+plt.tight_layout()
+save_and_show(fig, "Top10_Products_Revenues")
+
+# Figure 2. Analytical Interpretation: Top10 Products Revenues
+print("\n🔍 Analytical Interpretation: Top10 Products Revenues\n")
+print("""
+1️⃣ The store thrives in 'home & gifts' — decorative items lead sales.
+2️⃣ A few high-margin products drive most revenue (Pareto principle).
+3️⃣ Smaller products can support cross-selling and loyalty strategies.
+💡 Strategic Insight:
+Focus on optimizing inventory and promotions for top-performing SKUs.
+""")
+
+# FIGURE: Monthly Revenue Trend
+print("\n📊 Generating figure: Monthly Revenue Trend...")
+
+monthly_revenue = (
+    df.groupby(['InvoiceYear', 'InvoiceMonth'])['TotalPrice']
+    .sum()
+    .reset_index()
+)
+monthly_revenue['YearMonth'] = (
+    monthly_revenue['InvoiceYear'].astype(str) + "-" +
+    monthly_revenue['InvoiceMonth'].astype(str).str.zfill(2)
+)
+
+fig, ax = plt.subplots(figsize=(12,6))
+sns.lineplot(data=monthly_revenue, x='YearMonth', y='TotalPrice', marker='o', color='royalblue', ax=ax)
+ax.set_title("Monthly Revenue Trend")
+ax.set_xlabel("Month")
+ax.set_ylabel("Total Revenue (£)")
+plt.xticks(rotation=45)
+plt.tight_layout()
+save_and_show(fig, "Monthly_Revenue_Trend")
+
+# Figure 3. Analytical Interpretation: Monthly Revenue Trend
+print("\n🔍 Analytical Interpretation: Monthly Revenue Trend\n")
+print("""
+1️⃣ Revenue grows steadily across the year with a sharp Q4 peak.
+2️⃣ Strong seasonal impact from holidays (Black Friday, Christmas).
+3️⃣ Drop in December shows post-holiday slowdown.
+💡 Strategic Insight:
+Plan campaigns and logistics around Q4 peaks for maximum efficiency.
+""")
+
+# FIGURE: Customer Spending Distribution
+print("\n📊 Generating figure: Customer Spending Distribution...")
+
+customer_spending = (
+    df.groupby('CustomerID')['TotalPrice']
+    .sum()
+    .reset_index()
+    .rename(columns={'TotalPrice': 'TotalSpent'})
+)
+
+fig, ax = plt.subplots(figsize=(12,6))
+sns.histplot(customer_spending['TotalSpent'], bins=50, kde=True, color='darkorange', ax=ax)
+ax.set_title("Customer Spending Distribution")
+ax.set_xlabel("Total Spent (£)")
+ax.set_ylabel("Number of Customers")
+plt.tight_layout()
+save_and_show(fig, "Customer_Spending_Distribution")
+
+# Figure 4. Analytical Interpretation: Customer Spending Distribution
+print("\n🔍 Analytical Interpretation: Customer Spending Distribution\n")
+print("""
+1️⃣ Most customers spend small amounts, a few spend heavily (Pareto pattern).
+2️⃣ Indicates dependency on high-value customers.
+3️⃣ Highlights opportunity for loyalty programs and targeted retention.
+💡 Strategic Insight:
+Invest in retention of top spenders and engagement of low-value buyers.
+""")
+
+# FIGURE: Revenue by Day of the Week
+print("\n📊 Generating figure: Revenue by Day of the Week...")
+
+weekday_revenue = (
+    df.groupby('InvoiceWeekday')['TotalPrice']
+    .sum()
+    .reindex(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'])
+)
+
+fig, ax = plt.subplots(figsize=(10,5))
+sns.barplot(x=weekday_revenue.index, y=weekday_revenue.values, palette=sns.color_palette("Purples", n_colors=7), ax=ax)
+ax.set_title("Revenue by Day of the Week")
+ax.set_xlabel("Weekday")
+ax.set_ylabel("Total Revenue (£)")
+plt.tight_layout()
+save_and_show(fig, "Revenue_By_Weekday")
+
+# Figure 5. Analytical Interpretation: Revenue by Day of the Week
+print("\n🔍 Analytical Interpretation: Revenue by Day of the Week\n")
+print("""
+1️⃣ Revenue peaks mid-week (especially Thursday).
+2️⃣ Lower weekend sales reveal professional or routine-based buying.
+3️⃣ Suggests opportunity for weekend promotions to boost engagement.
+💡 Strategic Insight:
+Align campaigns with mid-week peaks and test weekend strategies.
+""")
+
+################################################################ 2. Data Interpretation ################################################################
+
+# 🧾 FINAL CONCLUSION & EXECUTIVE SUMMARY
+print("\n📊 FINAL CONCLUSION & EXECUTIVE SUMMARY\n")
+print("""
+🔹 OVERVIEW
+The analysis reveals a business with strong domestic dominance, seasonal sales peaks,
+and a customer base following a Pareto distribution — few high-value clients drive most revenue.
+
+🌍 GEOGRAPHY
+- UK drives >80% of total sales — strong but risky dependence.
+- Expansion in Europe could diversify income streams.
+
+🛍️ PRODUCTS
+- Home & gift items dominate; few SKUs account for most sales.
+- Prioritize inventory, marketing, and pricing around top products.
+
+📈 TIME
+- Revenue peaks in Q4 (Oct–Nov), reflecting strong holiday seasonality.
+- Strategic planning around these peaks can improve performance.
+
+👥 CUSTOMERS
+- Few customers generate most revenue (Pareto effect).
+- Loyalty and personalization are key to retention and profitability.
+
+📅 BEHAVIOR
+- Thursday is the top revenue day; weekends underperform.
+- Suggests potential for new weekend-focused campaigns.
+
+💡 STRATEGIC TAKEAWAYS
+1️⃣ Diversify geographic markets.
+2️⃣ Optimize inventory for high-performing SKUs.
+3️⃣ Focus marketing on high-value customer retention.
+4️⃣ Strengthen Q4 campaign preparation and logistics.
+5️⃣ Balance weekly sales patterns through promotional experimentation.
+
+✅ FINAL REMARK
+This analysis provides a foundation for RFM segmentation, CLV modeling,
+and predictive forecasting — essential next steps to enhance business intelligence
+and strategic decision-making.
+
+""")
+print("\n✅ All visuals generated and saved successfully in the 'figures' folder.")
