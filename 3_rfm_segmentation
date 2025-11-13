@@ -1,0 +1,229 @@
+# =====================================================================
+# 📊 STEP 4: RFM SEGMENTATION (Recency, Frequency, Monetary)
+
+# Title: Customer Value Segmentation through Behavioral Metrics
+# Author: Maria Figueiredo
+# Dataset: Online Retail (UCI Machine Learning Repository)
+
+# =====================================================================
+# 🎯 OBJECTIVE
+# The goal of this step is to segment customers based on their purchasing
+# behavior using the RFM (Recency, Frequency, Monetary) model — a classic
+# framework in marketing analytics for measuring customer engagement, loyalty, and financial contribution.
+
+# This step transforms transactional data into behavioral insights by:
+#   ▪ Quantifying how recently customers purchased (Recency),
+#   ▪ How often they purchase (Frequency),
+#   ▪ And how much they spend (Monetary).
+
+# The result is a segmentation of customers into distinct groups — such as
+# “Champions”, “Loyal Customers”, and “At Risk” — allowing targeted retention, reactivation, and loyalty strategies.
+
+# =====================================================================
+# 💡 WHY THIS STEP MATTERS
+# RFM segmentation is a cornerstone of customer relationship management (CRM) and data-driven marketing. 
+# It enables companies to shift from reactive to proactive customer engagement by understanding *who* their customers are and how they behave.
+
+# ▫ Financially → Identifies the customers that drive the majority of revenue.
+# ▫ Behaviorally → Differentiates loyal, new, and at-risk segments.
+# ▫ Strategically → Guides resource allocation and retention priorities.
+
+# This framework supports measurable business actions:
+#   - Rewarding high-value clients,
+#   - Re-engaging inactive ones,
+#   - And predicting future purchasing behavior.
+
+# =====================================================================
+# 🌍 VALUE FOR INDUSTRY AND SOCIETY
+# ▫ For Businesses:
+#     - Improves marketing efficiency and ROI by targeting specific customer types.
+#     - Strengthens retention programs and customer satisfaction.
+#     - Reduces churn by detecting early signs of disengagement.
+
+# ▫ For Society:
+#     - Encourages ethical personalization over aggressive mass marketing.
+#     - Promotes data use that enhances customer experience, not exploitation.
+#     - Supports sustainable business growth through long-term relationships
+#       rather than short-term transactions.
+
+# =====================================================================
+# 🧭 CURRENT STEP
+# This script is part of the project “Financial and Behavioral Analysis in E-Commerce”. 
+# It follows the exploratory analysis (Step 3) and applies the RFM model to identify and classify customer segments by value and behavior.
+
+# In this step we:
+#   1️⃣ Build RFM metrics (Recency, Frequency, Monetary) per customer.
+#   2️⃣ Assign scores (1–5 scale) and calculate composite RFM scores.
+#   3️⃣ Classify customers into five segments: Champions, Loyal Customers, Potential Loyalists, At Risk, and Lost.
+#   4️⃣ Visualize and interpret behavioral patterns within each segment.
+#   5️⃣ Provide strategic recommendations for retention and growth.
+
+# The insights generated here will serve as the foundation for the next step:
+# Customer Lifetime Value (CLV) modeling and retention forecasting.
+
+################################################################ 0. Initial Setup ################################################################
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+import warnings
+from datetime import datetime
+
+warnings.filterwarnings("ignore")
+sns.set(style="whitegrid")
+
+# GitHub-Friendly Paths
+clean_path = "Online_Retail_CLEAN.csv"
+fig_dir = "figures/"
+
+# Ensure folders exist
+os.makedirs("output", exist_ok=True)
+os.makedirs(fig_dir, exist_ok=True)
+
+# File existence check
+if not os.path.exists(clean_path):
+    raise FileNotFoundError(
+        f"\n❌ Cleaned dataset not found: {clean_path}\n"
+        f"➡️ Please run STEP 2 (Data Cleaning) first.\n"
+        f"   It will generate the required cleaned file inside 'output/'.\n"
+    )
+
+# LOAD CLEANED DATASET
+df = pd.read_csv(clean_path)
+
+print(f"✅ Dataset loaded with {df.shape[0]:,} rows and {df.shape[1]} columns.")
+print("Justification: The RFM model requires clean transactional data with CustomerID, InvoiceDate, and TotalPrice.\n")
+
+df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'])
+
+# DEFINE REFERENCE DATE
+reference_date = df['InvoiceDate'].max() + pd.Timedelta(days=1)
+print(f"📅 Reference date for recency calculation: {reference_date.date()}")
+print("Justification: The reference date is set one day after the latest transaction to compute time since last purchase (Recency).\n")
+
+################################################################ 1. RFM Setup ################################################################
+
+# BUILD RFM TABLE
+print("🔧 Calculating RFM metrics for each customer...")
+rfm = df.groupby('CustomerID').agg({
+    'InvoiceDate': lambda x: (reference_date - x.max()).days,  # Recency
+    'InvoiceNo': 'nunique',                                    # Frequency
+    'TotalPrice': 'sum'                                        # Monetary
+}).reset_index()
+
+rfm.columns = ['CustomerID', 'Recency', 'Frequency', 'Monetary']
+
+print(f"✅ RFM table created with {rfm.shape[0]:,} customers.\n")
+print("Interpretation: Each customer now has three behavioral indicators — "
+      "Recency (how recently they purchased), Frequency (how often they buy), "
+      "and Monetary (how much they spend). These will define customer value segments.\n")
+
+# CREATE RFM SCORES
+print("📊 Assigning RFM scores (1–5 scale)...")
+rfm['R_Score'] = pd.qcut(rfm['Recency'], 5, labels=[5,4,3,2,1])  # More recent = higher score
+rfm['F_Score'] = pd.qcut(rfm['Frequency'].rank(method='first'), 5, labels=[1,2,3,4,5])
+rfm['M_Score'] = pd.qcut(rfm['Monetary'], 5, labels=[1,2,3,4,5])
+
+rfm['RFM_Segment'] = rfm['R_Score'].astype(str) + rfm['F_Score'].astype(str) + rfm['M_Score'].astype(str)
+rfm['RFM_Score'] = rfm[['R_Score','F_Score','M_Score']].astype(int).sum(axis=1)
+
+print("✅ RFM scores successfully assigned.\n")
+print("Interpretation: Higher RFM scores represent customers who are more active, frequent, and profitable. "
+      "They will be the main drivers of retention and revenue growth.\n")
+
+# CLASSIFY CUSTOMERS INTO SEGMENTS
+print("🎯 Classifying customers into meaningful behavioral segments...\n")
+
+def segment_customer(row):
+    if row['RFM_Score'] >= 13:
+        return 'Champions'
+    elif 10 <= row['RFM_Score'] < 13:
+        return 'Loyal Customers'
+    elif 8 <= row['RFM_Score'] < 10:
+        return 'Potential Loyalists'
+    elif 5 <= row['RFM_Score'] < 8:
+        return 'At Risk'
+    else:
+        return 'Lost Customers'
+
+rfm['Segment'] = rfm.apply(segment_customer, axis=1)
+
+print("Interpretation: Customers are now grouped into five categories based on behavior and value — "
+      "from 'Champions' (most valuable) to 'Lost Customers' (inactive or churned).\n")
+
+################################################################ 2. RFM Analysis ################################################################
+
+# SEGMENT ANALYSIS SUMMARY
+segment_summary = rfm.groupby('Segment').agg({
+    'CustomerID': 'count',
+    'Recency': 'mean',
+    'Frequency': 'mean',
+    'Monetary': 'mean'
+}).rename(columns={'CustomerID': 'Num_Customers'}).sort_values(by='Monetary', ascending=False)
+
+print("📊 RFM Segment Summary:")
+print(segment_summary.round(2))
+print("\nInterpretation: This table shows the behavioral profile of each customer segment — "
+      "how many customers each group contains, and their average Recency, Frequency, and Monetary values.\n")
+
+# VISUALIZATION: CUSTOMER DISTRIBUTION BY SEGMENT
+fig, ax = plt.subplots(figsize=(12,5))
+sns.barplot(x=segment_summary.index, y=segment_summary['Num_Customers'],
+            palette=["#7ea2ff", "#a7c5ff", "#e0e0e0", "#f2b09d", "#cf6d5b"], ax=ax)
+
+ax.set_title("Customer Distribution by RFM Segment")
+ax.set_xlabel("Segment")
+ax.set_ylabel("Number of Customers")
+plt.tight_layout()
+
+fig_dir = r"C:\Users\mcfigueiredo\OneDrive - SONAE\Desktop\Online Shopping\figures"
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+filepath = os.path.join(fig_dir, f"RFM_Segment_Distribution_{timestamp}.png")
+fig.savefig(filepath, dpi=300, bbox_inches='tight')
+print(f"🖼️ Figure saved: {filepath}")
+plt.show()
+
+################################################################ 3. RFM Interpretation ################################################################
+
+# ANALYTICAL INTERPRETATION (FIGURE)
+print("\n🔍 Analytical Interpretation: Customer Distribution by RFM Segment\n")
+print("""
+1️⃣ The largest groups are 'At Risk' and 'Loyal Customers', together representing over 45% of all clients.
+   - 'At Risk' customers have high potential for reactivation with the right incentives.
+   - 'Loyal Customers' are stable, frequent buyers and the backbone of the business.
+
+2️⃣ 'Champions' (~20%) are high-frequency and high-spending customers — 
+   the company should protect and reward them (e.g., exclusive access, loyalty programs).
+
+3️⃣ 'Potential Loyalists' show encouraging recency but moderate spending — 
+   target them with cross-selling and special promotions to increase lifetime value.
+
+4️⃣ 'Lost Customers' represent low engagement and spending; they can be analyzed for churn causes.
+
+💡 Strategic Insight:
+The distribution shows a balanced yet opportunity-rich customer base.
+Reactivation of “At Risk” clients and nurturing “Potential Loyalists” could yield
+significant revenue uplift, while retention of “Champions” ensures long-term stability.
+""")
+
+# GENERAL STRATEGIC CONCLUSION
+print("\n📈 Overall Strategic Conclusion: RFM Segmentation Insights\n")
+print("""
+🔹 The segmentation reveals a clear customer hierarchy:
+   - High-value segments ('Champions', 'Loyal') drive the majority of revenue.
+   - Medium segments ('Potential Loyalists') hold growth potential.
+   - Low-value segments ('At Risk', 'Lost') present churn and reactivation opportunities.
+
+🔹 Focusing resources on:
+   • Retention and recognition of top-tier clients.
+   • Personalized marketing for mid-tier clients.
+   • Automated reactivation strategies for churned customers
+will maximize Customer Lifetime Value (CLV) and marketing ROI.
+
+💡 Next Step:
+Use the RFM framework as input for a CLV model, predicting the future value of each customer
+to allocate marketing resources efficiently.
+""")
+
+print("\n✅ RFM analysis and interpretation completed successfully.")
