@@ -1,0 +1,198 @@
+# =====================================================================
+# 📈 STEP 7: SALES FORECASTING USING META PROPHET
+
+# Title: Forecasting Monthly Revenue and Seasonality in E-Commerce
+# Author: Maria Figueiredo
+# Dataset: Online Retail (UCI Machine Learning Repository)
+
+# =====================================================================
+# 🎯 OBJECTIVE
+# This step applies Meta’s Prophet model to forecast future monthly revenue and identify seasonal patterns in customer 
+# purchasing behavior. Prophet is a time series forecasting tool developed by Meta (Facebook)
+# designed to handle complex seasonality and business trends with high interpretability and minimal parameter tuning.
+
+# The objective of this step is to:
+#   ▪ Build a monthly time series of revenue from transaction data.
+#   ▪ Train a Prophet model to project sales for the next 12 months.
+#   ▪ Analyze seasonal effects and underlying business trends.
+#   ▪ Translate forecast results into operational and marketing strategies.
+
+# The output supports proactive, data-driven decision-making in budgeting, supply chain management, and marketing planning.
+
+# =====================================================================
+# 💡 WHY THIS STEP MATTERS
+# Accurate forecasting is essential for anticipating demand fluctuations, optimizing resources, and minimizing inefficiencies in retail operations.
+
+# ▫ Financially → Enables revenue prediction and budget allocation.
+# ▫ Operationally → Supports inventory management and workforce planning.
+# ▫ Strategically → Provides visibility into future sales cycles and
+#   seasonality-driven opportunities.
+
+# By understanding when revenue peaks or declines, organizations can prepare campaigns, stock levels, and logistics ahead of 
+# time — transforming uncertainty into competitive advantage.
+
+# =====================================================================
+# 🌍 VALUE FOR INDUSTRY AND SOCIETY
+# ▫ For Businesses:
+#     - Improves forecasting accuracy and operational readiness.
+#     - Reduces waste and stockouts through better inventory alignment.
+#     - Strengthens long-term planning and resource efficiency.
+
+# ▫ For Society:
+#     - Promotes more sustainable business operations by minimizing overproduction.
+#     - Encourages responsible data-driven decision-making.
+#     - Enhances consumer experience through improved availability and service.
+
+# =====================================================================
+# 🧭 CURRENT STEP
+
+# This script follows Step 6 (Customer Retention Simulation) and marks the
+# transition from customer-level analytics to business-level forecasting.
+
+# In this step we:
+#   1️⃣ Aggregate revenue into a monthly time series.
+#   2️⃣ Train a Prophet model with multiplicative seasonality.
+#   3️⃣ Forecast total sales for the next 12 months.
+#   4️⃣ Visualize forecasted trends and seasonal components.
+#   5️⃣ Interpret the results from both financial and strategic perspectives.
+
+# These insights will support the next analytical stage: demand prediction by product and predictive churn 
+# modeling — closing the loop of predictive business intelligence.
+
+# =====================================================================
+# 💼 STRATEGIC CONTEXT
+# This analysis bridges data science and strategic management by linking
+# statistical forecasting with tactical business actions:
+
+# ▪ Inventory → Anticipate Q4 peaks and plan supplier orders.
+# ▪ Marketing → Time campaigns for seasonal revenue surges.
+# ▪ Finance → Adjust cash flow projections to sales seasonality.
+
+# Ultimately, this step strengthens the organization's resilience and
+# planning capacity — aligning data-driven insight with real-world execution.
+
+################################################################ 0. Initial Setup ################################################################
+
+import pandas as pd
+import matplotlib.pyplot as plt
+from prophet import Prophet
+import seaborn as sns
+import os
+from datetime import datetime
+import warnings
+
+warnings.filterwarnings("ignore")
+sns.set(style="whitegrid")
+
+# GitHub-Friendly Paths
+clean_path = "Online_Retail_CLEAN.csv"
+fig_dir = "figures/"
+
+os.makedirs("output", exist_ok=True)
+os.makedirs(fig_dir, exist_ok=True)
+
+# CHECK CLEAN DATASET EXISTS
+if not os.path.exists(clean_path):
+    raise FileNotFoundError(
+        f"\n❌ Clean dataset not found at: {clean_path}\n"
+        f"➡️ Please run STEP 2 before executing STEP 7.\n"
+    )
+
+# LOAD CLEANED DATASET
+df = pd.read_csv(clean_path)
+df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'])
+
+print(f"✅ Dataset loaded successfully: {df.shape[0]:,} transactions.")
+print("Prophet requires a time series aggregated into consistent intervals.\n")
+
+################################################################ 1. Prepare Monthly Revenue ################################################################
+
+print("📊 Aggregating monthly revenue...")
+
+monthly_revenue = (
+    df.groupby(pd.Grouper(key='InvoiceDate', freq='M'))['TotalPrice']
+    .sum()
+    .reset_index()
+)
+
+monthly_revenue.columns = ['ds', 'y']  # Prophet expects columns: ds = date, y = value
+
+print(f"✅ Monthly revenue time series created: {monthly_revenue.shape[0]} months.\n")
+print(monthly_revenue.tail(), "\n")
+
+################################################################ 2. Forecasting Setup ################################################################
+
+print("🔮 Training Prophet forecasting model...")
+
+model = Prophet(
+    yearly_seasonality=True,
+    weekly_seasonality=False,
+    daily_seasonality=False,
+    seasonality_mode='multiplicative'
+)
+
+model.fit(monthly_revenue)
+
+# Forecast 12 months ahead
+future = model.make_future_dataframe(periods=12, freq='M')
+forecast = model.predict(future)
+
+print("✅ Prophet model trained. Forecast generated for next 12 months.\n")
+
+################################################################ 3. Visualization ################################################################
+
+# FORECAST PLOT 
+fig1 = model.plot(forecast, xlabel='Date', ylabel='Revenue (£)')
+plt.title("Monthly Revenue Forecast – Prophet Model", fontsize=14)
+plt.tight_layout()
+
+timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+forecast_path = os.path.join(fig_dir, f"Monthly_Revenue_Forecast_{timestamp}.png")
+
+fig1.savefig(forecast_path, dpi=300, bbox_inches='tight')
+print(f"🖼️ Forecast plot saved to: {forecast_path}\n")
+
+# COMPONENTS (TREND + SEASONALITY) PLOT
+fig2 = model.plot_components(forecast)
+plt.tight_layout()
+
+components_path = os.path.join(fig_dir, f"Revenue_Forecast_Components_{timestamp}.png")
+fig2.savefig(components_path, dpi=300, bbox_inches='tight')
+
+print(f"🖼️ Seasonality components saved to: {components_path}\n")
+plt.show()
+
+################################################################ 4. Interpretation ################################################################
+
+print("🔍 Analytical Interpretation: Monthly Revenue Forecast\n")
+print("""
+1️⃣ **Trend:** The model indicates a stable upward revenue trajectory,
+    suggesting persistent growth in e-commerce activity.
+
+2️⃣ **Seasonality:** Strong peaks occur in November–December,
+    aligned with Black Friday, Cyber Monday, and Christmas.
+
+3️⃣ **Low-demand periods:** Clear revenue slowdowns appear in January–February,
+    matching typical post-holiday spending declines.
+
+4️⃣ **Uncertainty:** Confidence intervals widen at longer horizons,
+    reflecting natural unpredictability in retail markets.
+
+💡 Strategic Insight:
+- Stock up ahead of Q4 peaks to avoid lost sales.
+- Activate marketing heavyweights exactly during seasonal surges.
+- Adjust cash-flow expectations for seasonal downturns.
+""")
+
+print("\n📈 Strategic Conclusion: Sales Forecasting\n")
+print("""
+🔹 The Prophet model clearly exposes both long-term trends and seasonal fluctuations.
+🔹 Its interpretable components (trend + seasonality) support tactical planning.
+🔹 It should be retrained monthly or quarterly to maintain forecast accuracy.
+
+💬 Business Application:
+Accurate forecasting improves operations, minimizes waste,
+and supports efficient financial and marketing planning.
+""")
+
+print("\n✅ STEP 7 — Sales forecasting with Meta Prophet completed successfully!")
